@@ -25,7 +25,8 @@ import org.apache.hadoop.hbase.filter.FilterList.Operator;
 import org.apache.hadoop.hbase.util.Bytes;
 
 public class ParalleHBaseQuery {
-	private static final int BUCHET_SIZE=4;
+	//buchet_size equal to thread count,it's determing by table,don't change
+	private static final int BUCHET_SIZE=10;
 	public static FilterList filterComponent (String operator,List<String[]> filters) {
 		FilterList.Operator o = null;
 		switch (operator) {
@@ -146,39 +147,35 @@ public class ParalleHBaseQuery {
 			System.out.println(entry.getKey()+":"+qualifier+":"+entry.getValue());
 		}
 	}
-	private static Runnable myRunnable(final int in,String tableName,String columnFamilyName,String qualifier,String startRow,String endRow,int num) {
+	private static Runnable Query(final int in,String tableName,String columnFamilyName,String qualifier,String startRow,String endRow,int num,ArrayList<String[]> query,boolean isComplexQuery) {
 		Runnable r = () -> {
 			try {
-				//when the query is complicated
-				List<String[]> filterValue = new ArrayList<>();
-				String[] value1 = {"1","=","v","proto","[\"HTTP\",\"TCP\"]"};
-				String[] value2 = {"3","=","v","dst","\"北京\""};
-				filterValue.add(value1);
-				filterValue.add(value2);
-				FilterList filterList = filterComponent("MUST_PASS_ALL", filterValue);
-				
-				//query like: equal to a family:qualifier:value
-//				String[] simpleValue = {"2","=","\"中国\""};
-//				ValueFilter valueFilter= simpleFilterComponent(simpleValue);
-				
+				//store result in map
 				NavigableMap<String, String> resultMap = new TreeMap<String,String>();
+				//hbase conf
 				Configuration conf = new Configuration();
-				conf.set("hbase.zookeeper.quorum","slave2");
+				conf.set("hbase.zookeeper.quorum","slave1,slave2");
 				conf.set("hbase.zookeeper.property.clientPort","2181");
 				Connection connection = ConnectionFactory.createConnection(HBaseConfiguration.create(conf));
 				Table table = connection.getTable(TableName.valueOf(tableName));
 				byte[] cfnByte = columnFamilyName.getBytes();
 				byte[] qByte = qualifier.getBytes();
+				//scan conf
 				Scan scan = new Scan();
 				scan.setCaching(1000);
 				scan.setCacheBlocks(false);
 				scan.withStartRow(Bytes.toBytes(in+startRow));
 				scan.withStopRow(Bytes.toBytes(in+endRow));
-				//scan.addColumn(cfnByte, qByte);
-//				if(valueFilter != null) {
-//					scan.setFilter(valueFilter);
-//				}
-				scan.setFilter(filterList);
+				
+				if (isComplexQuery) {
+					FilterList filterList = filterComponent("MUST_PASS_ALL", query);
+					scan.setFilter(filterList);
+				}
+				else {
+					ValueFilter valueFilter = simpleFilterComponent(query.get(0));
+					scan.setFilter(valueFilter);
+				}
+				//get query result
 				ResultScanner scanner = table.getScanner(scan);
 				try {
 					Result result;
@@ -189,7 +186,7 @@ public class ParalleHBaseQuery {
 						//System.out.println(new String(row)+ ":" + new String(value));
 						resultMap.put((new String(row)).replace("x", "").substring(1), new String(value));
 					}
-					showQueryResult(resultMap,qualifier);
+					//showQueryResult(resultMap,qualifier);
 					System.out.println("Return result count is:" + resultMap.size());
 				}finally {
 					scanner.close();
@@ -202,15 +199,30 @@ public class ParalleHBaseQuery {
 		return r;
 	}
 	public static void main(String[] args)throws Exception{
-		//HBase info
+		//HBase query info
 		String tableName = "test2";
 		String columnFamilyName = "v";
 		String qualifierName = "dst";
-		String startRow = "20180625120000";
-		String endRow = "20180625130000";
+		String startRow = "20180627120000";
+		String endRow = "20180627123000";
 		int num = Integer.MAX_VALUE;
+		boolean isComplexQuery = true;
+		ArrayList<String[]> Query = new ArrayList<>();
+		if (isComplexQuery) {
+			//when the query is complicated
+			//add your value like:filtertype|operator|columnFamilyName|qulifier|value
+			String[] value1 = {"1","=","v","proto","[\"HTTP\",\"TCP\"]"};
+			String[] value2 = {"3","=","v","dst","\"北京\""};
+			Query.add(value1);
+			Query.add(value2);
+		}
+		else {
+			//simple oen query:filtertype|operater|value 
+			String[] query = {"2","=","\"中国\""};
+			Query.add(query);
+		}
 		for(int i = 0; i < BUCHET_SIZE;i++) {
-			Thread t = new Thread(myRunnable(i,tableName,columnFamilyName,qualifierName,startRow,endRow,num));
+			Thread t = new Thread(Query(i,tableName,columnFamilyName,qualifierName,startRow,endRow,num,Query,isComplexQuery));
 			t.start();
 		}
 	}
