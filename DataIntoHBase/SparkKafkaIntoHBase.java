@@ -29,7 +29,7 @@ public class SparkKafkaIntoHBase {
 	private static final String HBASE_PKA_NAME="test2";
 	private static final String[] KAFKA_TOPIC_NAME= {"test"};
 	private static final String HBASE_COLUMNFAMILY_NAME="v";
-	private static final long BATCH_DURATION=500;
+	private static final long BATCH_DURATION=1000;
 	public static void main(String[] args)throws Exception{
 		//kafka config
 		Map<String, Object> kafkaParams = new HashMap<>();
@@ -37,9 +37,10 @@ public class SparkKafkaIntoHBase {
 		kafkaParams.put("key.deserializer", StringDeserializer.class);
 		kafkaParams.put("value.deserializer", StringDeserializer.class);
 		kafkaParams.put("group.id", "spark");
-		kafkaParams.put("auto.offset.reset", "latest");
+		kafkaParams.put("auto.offset.reset", "earliest");
 		kafkaParams.put("enable.auto.commit", true);
 		//spark config
+		System.setProperty("spark.executor.cores", "4");
 		System.setProperty("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
 		Collection<String> topics = Arrays.asList(KAFKA_TOPIC_NAME);
 		SparkConf sConf = new SparkConf()
@@ -47,7 +48,7 @@ public class SparkKafkaIntoHBase {
 				.setMaster("yarn");
 		JavaStreamingContext jssc = new JavaStreamingContext(sConf,Durations.milliseconds(BATCH_DURATION));
 		Configuration conf = new Configuration();
-		conf.set("hbase.zookeeper.quorum","slave2");
+		conf.set("hbase.zookeeper.quorum","slave1,slave2");
 		conf.set("hbase.zookeeper.property.clientPort","2181");
 		conf.set(TableOutputFormat.OUTPUT_TABLE, HBASE_PKA_NAME);
 		
@@ -68,7 +69,8 @@ public class SparkKafkaIntoHBase {
 					RecordParser.ptd_parse(record.value()).iterator());
 			//map to HBase ouput format
 			JavaPairRDD<ImmutableBytesWritable, Put> outData = out
-			.mapToPair(new PairFunction<Map<?,?>, ImmutableBytesWritable, Put>() {
+				.repartition(8)	
+				.mapToPair(new PairFunction<Map<?,?>, ImmutableBytesWritable, Put>() {
 				private static final long serialVersionUID = 1L;
 				@Override
 				public Tuple2<ImmutableBytesWritable, Put> call (Map<?,?> in) throws IOException{
