@@ -1,0 +1,10 @@
+inputs:
+    - Stdin:
+        codec: plain
+outputs:
+    - Kafka:
+        producer_settings:
+            bootstrap.servers: 10.2.7.109:9092
+        topic: test
+    - Stdout: {}
+

@@ -1,0 +1,19 @@
+inputs:
+    - NewKafka:
+        topic:
+            test: 2
+        codec: json
+        consumer_settings:
+            bootstrap.servers: 192.168.18.143:9092
+            value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+            key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+            group.id: hangout
+outputs:
+    - com.sina.bip.hangout.outputs.Clickhouse:
+        host: 192.168.18.142:8123
+        username: admin
+        password: clickhouseTest
+        database: default
+        format: JSONEachRow
+        table: test_all
+        bulk_size: 5

@@ -1,0 +1,29 @@
+inputs:
+   - Stdin:
+        codec: plain
+        hostname: true # if add hostname to event; default false
+        type: stdin1
+
+filters:
+    - Filters:
+        if:
+          - '<#if message??>true</#if>'
+          - '<#if message?contains("liu")>true<#elseif message?contains("warn")>true</#if>'
+        filters:
+            - Add:
+                fields:
+                    test: 'abcd'
+    - Add:
+          fields:
+              addfield1: 'field1content'
+    - Add:
+          fields:
+              addfield2: 'field2content'
+    - Grok:
+          match:
+            - '^(?<logtime>\S+) (?<user>.+) (-|(?<level>\w+)) %{DATA:msg}$'
+          remove_fields: ['message']
+          tag_on_failure: '' # do not add tags; deafult "grokfail"     addfield2: 'field2content'
+
+outputs:
+    - Stdout: {}
