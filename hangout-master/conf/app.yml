@@ -16,4 +16,5 @@ outputs:
         database: default
         format: JSONEachRow
         table: test_all
-        bulk_size: 5
+        bulk_size: 10
+        convertNull: ['d_','r_','http_','label','dns_','users_','email_']
