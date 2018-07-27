@@ -67,6 +67,10 @@ ClickHouse withCredit username
 
 ClickHouse withCredit password
 
+##### convertNull [list]
+
+JSON中需要将null值转换为'[]'的Array(String)格式的字段
+
 ### Examples
 
 ```
