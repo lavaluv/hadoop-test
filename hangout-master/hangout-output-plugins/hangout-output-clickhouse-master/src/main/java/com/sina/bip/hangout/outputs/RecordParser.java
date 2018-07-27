@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * 
  */
 public class RecordParser {
-	public static String ptd_parse(String in) throws IOException {
+	public static String ptd_parse(String in,String convertNull) throws IOException {
 		ArrayList<String> result = new ArrayList<>();
 		ArrayList<String> sList = new ArrayList<>();
 		ArrayList<String> key = new ArrayList<>();
@@ -29,7 +29,7 @@ public class RecordParser {
             	Iterator<JsonNode> array = entry.getValue().iterator(); 
             	while(array.hasNext()) {
             		//format string
-            		JsonToSqlString(sList, array.next(),key, mapper);
+            		JsonToSqlString(sList, array.next(),key, mapper,convertNull);
             		result.add("{" + sList.toString().substring(1, sList.toString().length() - 1) + "}");
             		key.clear();
             		sList.clear();
@@ -39,7 +39,7 @@ public class RecordParser {
         } 
 		return result.toString().substring(1, result.toString().length() - 1);
 	}
-	public static void JsonToSqlString(ArrayList<String> out,JsonNode node,ArrayList<String> preKey,ObjectMapper mapper) {
+	public static void JsonToSqlString(ArrayList<String> out,JsonNode node,ArrayList<String> preKey,ObjectMapper mapper,String convertNull) {
 		Iterator<Entry<String, JsonNode>> it = node.fields(); 
         while (it.hasNext())  
         {  
@@ -49,7 +49,7 @@ public class RecordParser {
             preKey.add(key);
             //for json like "a":{"b":value},parse to "a_b":value
             if(value.isObject()) {
-            	JsonToSqlString(out,value, preKey, mapper);
+            	JsonToSqlString(out,value, preKey, mapper,convertNull);
             	preKey.remove(key);
             }else {
             	String v = value.toString();
@@ -62,19 +62,23 @@ public class RecordParser {
             	if (value.isArray() && value.has(0) &&  value.get(0).isObject()) {
             		v = formatJsonArray(value, mapper);
             	//for json like d_ | r_ | http_,replace null value to [] 
-				}else if(k.matches("^(d_|r_|http_|label|dns_|users_|email_)(\\S)*") && v =="null") {
+				}else if(k.matches("^(" + convertNull + ")(\\S)*") && v =="null") {
 					v = "[]";
-				//add "time":yyyy/MM/dd
+				//add "day":yyyy-MM-dd,"hour","min" 
 				}else if(k.matches("^(ts_)(\\S)*")) {
 					if (v.length() <12) {
 						String date = new java.text.SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new Date(Integer.parseInt(v) * 1000L)).replace("/", "-");
 						if (k.equals("ts_end")) {
-							out.add("\"time\":\"" + date.substring(0, 10) + "\"");
+							out.add("\"day\":\"" + date.substring(0, 10) + "\"");
+							out.add("\"hour\":\"" + date.substring(0, 14) + "00:00" + "\"");
+							out.add("\"min\":\"" + date.substring(0, 17) + "00" + "\"");
 						}
 						v = "\"" + date + "\"";
 					}
 					else if(k.equals("ts_end")){
-						out.add("\"time\":" + v.substring(0, 11) + "\"");
+						out.add("\"day\":" + v.substring(0, 11) + "\"");
+						out.add("\"hour\":" + v.substring(0, 15) + "00:00" + "\"");
+						out.add("\"min\":" + v.substring(0, 18) + "00" + "\"");
 					}
 				}
             	//for dst_ip|src_ip:123456789
@@ -86,6 +90,11 @@ public class RecordParser {
             }
         } 
 	}
+	/*
+	 * 在每个数组内的对象转换为String
+	 * 且对象内的"字符转换为\"字符
+	 * 如{"a":b}转换为"{\"a\":b}"
+	 */
 	public static String formatJsonArray(JsonNode node,ObjectMapper mapper) {
 		String out = "";
 		Iterator<JsonNode> in = node.iterator(); 

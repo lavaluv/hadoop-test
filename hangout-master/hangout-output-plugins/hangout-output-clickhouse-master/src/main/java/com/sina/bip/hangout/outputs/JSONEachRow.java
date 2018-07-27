@@ -28,6 +28,7 @@ public class JSONEachRow implements FormatParse {
     private Boolean withCredit;
     private String user;
     private String password;
+    private String convertNull;
     public Double fraction;
     private BalancedClickhouseDataSource dataSource;
     private ClickHouseConnectionImpl conn;
@@ -66,7 +67,12 @@ public class JSONEachRow implements FormatParse {
             System.exit(1);
         }
         this.table = (String) this.config.get("table");
-
+        if(this.config.containsKey("convertNull")) {
+        	List<String> temp= (List<String>) this.config.get("convertNull");
+        	this.convertNull = temp.toString().replace("[", "").replace("]", "").replace(",", "|").replace(" ", "");
+        }else {
+        	this.convertNull = " ";
+        }
         if(this.config.containsKey("username") && this.config.containsKey("password")) {
             this.user = (String) this.config.get("username");
             this.password = (String) this.config.get("password");
@@ -125,7 +131,7 @@ public class JSONEachRow implements FormatParse {
     private StringBuilder makeUpSql(List<Map> events) throws IOException {
     	StringBuilder sqls = new StringBuilder(this.initSql());
     	for(Map e: events) {
-            sqls.append(RecordParser.ptd_parse(e.toString()));
+            sqls.append(RecordParser.ptd_parse(e.toString(),this.convertNull));
         }
         return sqls;
     }
