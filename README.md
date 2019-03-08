@@ -223,8 +223,8 @@ Hadoop
 ```xml
 	<configuration>
    		<property>
-      		<name>fs.default.name </name>
-      		<value> hdfs://localhost:8020 </value> 
+      		<name>fs.default.name</name>
+      		<value>hdfs://localhost:8020</value> 
    		</property>
 	</configuration>
 ```
